@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle de Frotas</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23176b5b'/%3E%3Cpath d='M13 37h29V22H13v15Zm29 0h9l-4-9h-5v9ZM20 48a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm25 0a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Controle de frotas</p>
+          <h1>Frotas</h1>
+        </div>
+
+        <section class="admin-panel" aria-label="Acesso administrativo">
+          <form id="admin-form" class="admin-login">
+            <label for="admin-pin">PIN admin</label>
+            <input id="admin-pin" type="password" inputmode="numeric" autocomplete="off" />
+            <button class="icon-button labeled" type="submit">
+              <i data-lucide="lock-keyhole"></i>
+              <span>Entrar</span>
+            </button>
+          </form>
+          <button id="logout-admin" class="icon-button labeled hidden" type="button">
+            <i data-lucide="log-out"></i>
+            <span>Sair</span>
+          </button>
+        </section>
+      </header>
+
+      <section class="toolbar" aria-label="Ferramentas">
+        <div class="search-box">
+          <i data-lucide="search"></i>
+          <input
+            id="fleet-search"
+            type="search"
+            placeholder="Pesquisar placa, GO, empresa ou modal"
+            autocomplete="off"
+          />
+        </div>
+
+        <button id="add-fleet" class="primary-button hidden" type="button">
+          <i data-lucide="plus"></i>
+          <span>Adicionar conjunto</span>
+        </button>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <span id="fleet-count">0 conjuntos</span>
+        <span id="sync-status">Conectando...</span>
+      </section>
+
+      <section id="fleet-list" class="fleet-grid" aria-label="Conjuntos cadastrados"></section>
+
+      <section id="empty-state" class="empty-state hidden">
+        <i data-lucide="truck"></i>
+        <h2>Nenhum conjunto encontrado</h2>
+        <p>Cadastre uma composição ou ajuste a pesquisa.</p>
+      </section>
+    </main>
+
+    <dialog id="fleet-dialog" class="fleet-dialog">
+      <form id="fleet-form" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Cadastro da composição</p>
+            <h2 id="dialog-title">Novo conjunto</h2>
+          </div>
+          <button id="close-dialog" class="icon-button ghost" type="button" aria-label="Fechar">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <input id="fleet-id" type="hidden" />
+
+        <fieldset>
+          <legend>Cavalo mecânico</legend>
+          <div class="field-grid">
+            <label>
+              <span>Placa do cavalo</span>
+              <input id="placa" name="placa" type="text" maxlength="8" required placeholder="ABC-1D23" />
+            </label>
+
+            <label>
+              <span>Modelo do CM</span>
+              <select id="tipo-cavalo" name="tipoCavalo" required>
+                <option value="Próprio">Próprio</option>
+                <option value="Piff">Piff</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Carreta atrelada</legend>
+          <div class="field-grid">
+            <label>
+              <span>GO da carreta</span>
+              <input id="go-carreta" name="goCarreta" type="text" required placeholder="23999" />
+            </label>
+
+            <label>
+              <span>Empresa</span>
+              <input id="empresa" name="empresa" type="text" required placeholder="Empresa X" />
+            </label>
+
+            <label>
+              <span>Modal</span>
+              <select id="modal" name="modal" required>
+                <option value="Bitrem">Bitrem</option>
+                <option value="Tritrem">Tritrem</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Características da operação</legend>
+          <div class="field-grid">
+            <label>
+              <span>Com casca</span>
+              <select id="com-casca" name="comCasca" required>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Catracas</span>
+              <select id="catracas" name="catracas" required>
+                <option value="6">6</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Fueiros</span>
+              <select id="fueiros" name="fueiros" required>
+                <option value="2">2</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="dialog-actions">
+          <button id="cancel-form" class="secondary-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="save"></i>
+            <span>Salvar</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="details-dialog" class="fleet-dialog details-dialog">
+      <div class="details-content">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Detalhes da composição</p>
+            <h2 id="details-title">Composição</h2>
+          </div>
+          <button id="close-details" class="icon-button ghost" type="button" aria-label="Fechar detalhes">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div id="details-body" class="details-grid"></div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
