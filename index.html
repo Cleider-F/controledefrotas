@@ -3,11 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#176b5b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Frotas" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Controle de Frotas</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23176b5b'/%3E%3Cpath d='M13 37h29V22H13v15Zm29 0h9l-4-9h-5v9ZM20 48a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm25 0a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z' fill='white'/%3E%3C/svg%3E"
-    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,23 +21,90 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="app-shell">
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-copy">
+          <p class="eyebrow">Controle de frotas</p>
+          <h1>Acesso</h1>
+          <p>Entre para visualizar as composições ou cadastre um novo usuário.</p>
+        </div>
+
+        <div class="auth-panel">
+          <div class="auth-tabs" role="tablist" aria-label="Acesso">
+            <button id="show-login" class="active" type="button">Login</button>
+            <button id="show-register" type="button">Cadastro</button>
+          </div>
+
+          <form id="login-form" class="auth-form">
+            <label>
+              <span>E-mail</span>
+              <input id="login-email" type="email" autocomplete="email" required />
+            </label>
+
+            <label>
+              <span>Senha</span>
+              <input id="login-password" type="password" autocomplete="current-password" required />
+            </label>
+
+            <button class="primary-button" type="submit">
+              <i data-lucide="log-in"></i>
+              <span>Entrar</span>
+            </button>
+          </form>
+
+          <form id="register-form" class="auth-form hidden">
+            <label>
+              <span>Nome</span>
+              <input id="register-name" type="text" autocomplete="name" required />
+            </label>
+
+            <label>
+              <span>E-mail</span>
+              <input id="register-email" type="email" autocomplete="email" required />
+            </label>
+
+            <label>
+              <span>Senha</span>
+              <input id="register-password" type="password" autocomplete="new-password" minlength="6" required />
+            </label>
+
+            <label>
+              <span>Tipo de conta</span>
+              <select id="register-role" required>
+                <option value="usuario">Usuário comum</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+
+            <label id="admin-code-field" class="hidden">
+              <span>Código de admin</span>
+              <input id="admin-code" type="password" autocomplete="off" />
+            </label>
+
+            <button class="primary-button" type="submit">
+              <i data-lucide="user-plus"></i>
+              <span>Cadastrar</span>
+            </button>
+          </form>
+
+          <p id="auth-message" class="auth-message" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <main id="app-screen" class="app-shell hidden">
       <header class="topbar">
         <div>
           <p class="eyebrow">Controle de frotas</p>
           <h1>Frotas</h1>
         </div>
 
-        <section class="admin-panel" aria-label="Acesso administrativo">
-          <form id="admin-form" class="admin-login">
-            <label for="admin-pin">PIN admin</label>
-            <input id="admin-pin" type="password" inputmode="numeric" autocomplete="off" />
-            <button class="icon-button labeled" type="submit">
-              <i data-lucide="lock-keyhole"></i>
-              <span>Entrar</span>
-            </button>
-          </form>
-          <button id="logout-admin" class="icon-button labeled hidden" type="button">
+        <section class="user-panel" aria-label="Usuário logado">
+          <div class="user-summary">
+            <strong id="user-name">Usuário</strong>
+            <span id="user-role" class="role-badge">Visualização</span>
+          </div>
+          <button id="logout-user" class="icon-button labeled" type="button">
             <i data-lucide="log-out"></i>
             <span>Sair</span>
           </button>
@@ -180,6 +251,25 @@
         <div id="details-body" class="details-grid"></div>
       </div>
     </dialog>
+
+    <section id="install-banner" class="install-banner hidden" aria-live="polite">
+      <div class="install-icon">
+        <img src="./assets/icon-192.png" alt="" />
+      </div>
+      <div class="install-copy">
+        <strong>Instalar Controle de Frotas</strong>
+        <span>Acesse como app na tela inicial.</span>
+      </div>
+      <div class="install-actions">
+        <button id="dismiss-install" class="icon-button ghost" type="button" aria-label="Agora não">
+          <i data-lucide="x"></i>
+        </button>
+        <button id="install-app" class="primary-button" type="button">
+          <i data-lucide="download"></i>
+          <span>Instalar</span>
+        </button>
+      </div>
+    </section>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 

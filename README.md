@@ -16,27 +16,51 @@ Depois abra:
 http://localhost:5173
 ```
 
-## Admin
+## PWA instalável
 
-O PIN inicial do protótipo é:
+O projeto já inclui:
+
+- `manifest.webmanifest`
+- `sw.js`
+- `offline.html`
+- ícones em `assets/`
+- banner de instalação no app
+
+Em `localhost`, o navegador permite testar a instalação. Para usuários finais, publique em HTTPS, como Firebase Hosting.
+
+## Autenticação
+
+No Firebase Console, habilite:
+
+- Authentication
+- Sign-in method
+- E-mail/Senha
+
+O app tem cadastro e login por e-mail e senha. No cadastro, o usuário escolhe entre:
+
+- `Usuário comum`: apenas visualiza as composições.
+- `Admin`: visualiza, adiciona, edita e exclui composições.
+
+O código inicial para cadastrar admin é:
 
 ```text
-1234
+FROTAS-ADMIN
 ```
 
-Para trocar, edite a constante `ADMIN_PIN` no arquivo `app.js`.
+Para trocar, edite a constante `ADMIN_SIGNUP_CODE` no arquivo `app.js`.
 
-> Esse PIN apenas esconde ou mostra os botões no navegador. Para produção, use Firebase Auth e regras do Firestore.
+> Esse código fica no front-end e serve para protótipo. Para produção, o ideal é criar admins manualmente no Firestore, usar Cloud Functions ou custom claims.
 
 ## Firestore
 
-O app usa a coleção:
+O app usa as coleções:
 
 ```text
 composicoes
+usuarios
 ```
 
-Campos gravados:
+Campos gravados em `composicoes`:
 
 - `placa`
 - `tipoCavalo`
@@ -49,20 +73,53 @@ Campos gravados:
 - `createdAt`
 - `updatedAt`
 
+Campos gravados em `usuarios/{uid}`:
+
+- `nome`
+- `email`
+- `role`: `admin` ou `usuario`
+- `createdAt`
+- `updatedAt`
+
 ## Regras para teste
 
-No Firebase Console, habilite o Firestore Database. Para testar rapidamente, você pode usar regras abertas por tempo limitado:
+No Firebase Console, habilite o Firestore Database. Para testar com autenticação e papéis:
 
 ```js
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == "admin";
+    }
+
     match /composicoes/{document} {
-      allow read, write: if true;
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /usuarios/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role in ["admin", "usuario"];
+      allow update: if signedIn()
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+          )
+        );
     }
   }
 }
 ```
 
-Para uso real, troque por regras com autenticação de admin.
+Para uso real, evite permitir que qualquer cadastro crie `role: "admin"` só pelo front-end.

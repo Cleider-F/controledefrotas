@@ -1,14 +1,23 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
   addDoc,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getFirestore,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -21,17 +30,36 @@ const firebaseConfig = {
   appId: "1:515556626253:web:59d31c82635983dd6b7104",
 };
 
-const ADMIN_PIN = "1234";
-const ADMIN_SESSION_KEY = "controleFrotasAdmin";
+const ADMIN_SIGNUP_CODE = "FROTAS-ADMIN";
+const INSTALL_DISMISSED_KEY = "controleFrotasInstallDismissed";
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 const fleetCollection = collection(db, "composicoes");
 
 const elements = {
-  adminForm: document.querySelector("#admin-form"),
-  adminPin: document.querySelector("#admin-pin"),
-  logoutAdmin: document.querySelector("#logout-admin"),
+  authScreen: document.querySelector("#auth-screen"),
+  appScreen: document.querySelector("#app-screen"),
+  showLogin: document.querySelector("#show-login"),
+  showRegister: document.querySelector("#show-register"),
+  loginForm: document.querySelector("#login-form"),
+  loginEmail: document.querySelector("#login-email"),
+  loginPassword: document.querySelector("#login-password"),
+  registerForm: document.querySelector("#register-form"),
+  registerName: document.querySelector("#register-name"),
+  registerEmail: document.querySelector("#register-email"),
+  registerPassword: document.querySelector("#register-password"),
+  registerRole: document.querySelector("#register-role"),
+  adminCodeField: document.querySelector("#admin-code-field"),
+  adminCode: document.querySelector("#admin-code"),
+  authMessage: document.querySelector("#auth-message"),
+  installBanner: document.querySelector("#install-banner"),
+  installApp: document.querySelector("#install-app"),
+  dismissInstall: document.querySelector("#dismiss-install"),
+  logoutUser: document.querySelector("#logout-user"),
+  userName: document.querySelector("#user-name"),
+  userRole: document.querySelector("#user-role"),
   addFleet: document.querySelector("#add-fleet"),
   search: document.querySelector("#fleet-search"),
   count: document.querySelector("#fleet-count"),
@@ -61,8 +89,11 @@ const elements = {
 
 let fleets = [];
 let filteredFleets = [];
-let isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
+let isAdmin = false;
+let currentProfile = null;
+let unsubscribeFleets = null;
 let toastTimeout;
+let deferredInstallPrompt = null;
 
 function normalizeText(value) {
   return String(value ?? "")
@@ -103,10 +134,134 @@ function showToast(message) {
   }, 3000);
 }
 
+function showAuthMessage(message) {
+  elements.authMessage.textContent = message;
+}
+
+function isStandaloneMode() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function showInstallBanner() {
+  const dismissed = sessionStorage.getItem(INSTALL_DISMISSED_KEY) === "true";
+
+  if (!deferredInstallPrompt || dismissed || isStandaloneMode()) {
+    return;
+  }
+
+  elements.installBanner.classList.remove("hidden");
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function hideInstallBanner() {
+  elements.installBanner.classList.add("hidden");
+}
+
+async function installApp() {
+  if (!deferredInstallPrompt) {
+    hideInstallBanner();
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+
+  if (choice.outcome === "accepted") {
+    showToast("Instalação iniciada.");
+  }
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.error(error);
+    });
+  });
+}
+
+function translateAuthError(error) {
+  const messages = {
+    "auth/email-already-in-use": "Este e-mail já está cadastrado.",
+    "auth/invalid-email": "Informe um e-mail válido.",
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/network-request-failed": "Falha de conexão. Tente novamente.",
+    "auth/operation-not-allowed": "Ative o provedor E-mail/Senha no Firebase Authentication.",
+    "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco e tente novamente.",
+    "auth/user-not-found": "Usuário não encontrado.",
+    "auth/weak-password": "Use uma senha com pelo menos 6 caracteres.",
+    "auth/wrong-password": "Senha incorreta.",
+  };
+
+  return messages[error.code] ?? "Não foi possível concluir o acesso.";
+}
+
+function setAuthMode(mode) {
+  const isLogin = mode === "login";
+  elements.loginForm.classList.toggle("hidden", !isLogin);
+  elements.registerForm.classList.toggle("hidden", isLogin);
+  elements.showLogin.classList.toggle("active", isLogin);
+  elements.showRegister.classList.toggle("active", !isLogin);
+  showAuthMessage("");
+
+  if (isLogin) {
+    elements.loginEmail.focus();
+  } else {
+    elements.registerName.focus();
+  }
+}
+
+function updateRoleFields() {
+  const wantsAdmin = elements.registerRole.value === "admin";
+  elements.adminCodeField.classList.toggle("hidden", !wantsAdmin);
+  elements.adminCode.required = wantsAdmin;
+
+  if (!wantsAdmin) {
+    elements.adminCode.value = "";
+  }
+}
+
+function showApp(profile) {
+  currentProfile = profile;
+  isAdmin = profile.role === "admin";
+  elements.authScreen.classList.add("hidden");
+  elements.appScreen.classList.remove("hidden");
+  elements.userName.textContent = profile.nome || profile.email || "Usuário";
+  elements.userRole.textContent = isAdmin ? "Admin" : "Visualização";
+  elements.userRole.classList.toggle("admin", isAdmin);
+  elements.syncStatus.textContent = "Conectando...";
+  updateAdminView();
+  subscribeToFleets();
+}
+
+function showLoginScreen() {
+  currentProfile = null;
+  isAdmin = false;
+  fleets = [];
+  filteredFleets = [];
+
+  if (unsubscribeFleets) {
+    unsubscribeFleets();
+    unsubscribeFleets = null;
+  }
+
+  elements.appScreen.classList.add("hidden");
+  elements.authScreen.classList.remove("hidden");
+  elements.syncStatus.textContent = "Desconectado";
+  renderFleets();
+  setAuthMode("login");
+}
+
 function updateAdminView() {
   elements.addFleet.classList.toggle("hidden", !isAdmin);
-  elements.logoutAdmin.classList.toggle("hidden", !isAdmin);
-  elements.adminForm.classList.toggle("hidden", isAdmin);
   renderFleets();
 }
 
@@ -283,7 +438,7 @@ async function saveFleet(event) {
   event.preventDefault();
 
   if (!isAdmin) {
-    showToast("Entre como admin para salvar.");
+    showToast("Apenas admin pode salvar composições.");
     return;
   }
 
@@ -334,7 +489,7 @@ async function saveFleet(event) {
 
 async function deleteFleet(fleet) {
   if (!isAdmin) {
-    showToast("Entre como admin para excluir.");
+    showToast("Apenas admin pode excluir composições.");
     return;
   }
 
@@ -352,34 +507,106 @@ async function deleteFleet(fleet) {
   }
 }
 
-function handleAdminLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
-  const pin = elements.adminPin.value.trim();
+  showAuthMessage("Entrando...");
 
-  if (pin !== ADMIN_PIN) {
-    showToast("PIN admin inválido.");
-    elements.adminPin.select();
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      elements.loginEmail.value.trim(),
+      elements.loginPassword.value
+    );
+    elements.loginPassword.value = "";
+    showAuthMessage("");
+  } catch (error) {
+    console.error(error);
+    showAuthMessage(translateAuthError(error));
+  }
+}
+
+async function handleRegister(event) {
+  event.preventDefault();
+
+  const nome = elements.registerName.value.trim();
+  const email = elements.registerEmail.value.trim();
+  const senha = elements.registerPassword.value;
+  const role = elements.registerRole.value === "admin" ? "admin" : "usuario";
+
+  if (role === "admin" && elements.adminCode.value.trim() !== ADMIN_SIGNUP_CODE) {
+    showAuthMessage("Código de admin inválido.");
+    elements.adminCode.select();
     return;
   }
 
-  isAdmin = true;
-  sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
-  elements.adminPin.value = "";
-  showToast("Modo admin ativo.");
-  updateAdminView();
+  showAuthMessage("Criando cadastro...");
+
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, email, senha);
+    const profile = {
+      nome,
+      email,
+      role,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(doc(db, "usuarios", credential.user.uid), profile);
+    elements.registerForm.reset();
+    updateRoleFields();
+    showAuthMessage("");
+    showToast("Cadastro criado.");
+    showApp({ ...profile, uid: credential.user.uid });
+  } catch (error) {
+    console.error(error);
+    showAuthMessage(translateAuthError(error));
+  }
 }
 
-function handleAdminLogout() {
-  isAdmin = false;
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  showToast("Modo visualização ativo.");
-  updateAdminView();
+async function handleLogout() {
+  try {
+    await signOut(auth);
+    showToast("Sessão encerrada.");
+  } catch (error) {
+    console.error(error);
+    showToast("Não foi possível sair.");
+  }
+}
+
+async function loadUserProfile(user) {
+  const profileRef = doc(db, "usuarios", user.uid);
+  const profileSnapshot = await getDoc(profileRef);
+
+  if (profileSnapshot.exists()) {
+    return {
+      uid: user.uid,
+      ...profileSnapshot.data(),
+    };
+  }
+
+  const fallbackProfile = {
+    nome: user.email,
+    email: user.email,
+    role: "usuario",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(profileRef, fallbackProfile);
+  return {
+    uid: user.uid,
+    ...fallbackProfile,
+  };
 }
 
 function subscribeToFleets() {
+  if (unsubscribeFleets) {
+    return;
+  }
+
   const fleetsQuery = query(fleetCollection, orderBy("placa", "asc"));
 
-  onSnapshot(
+  unsubscribeFleets = onSnapshot(
     fleetsQuery,
     (snapshot) => {
       fleets = snapshot.docs.map((fleetDoc) => ({
@@ -393,13 +620,22 @@ function subscribeToFleets() {
     (error) => {
       console.error(error);
       elements.syncStatus.textContent = "Erro no Firebase";
-      showToast("Confira se o Firestore está ativo e com regras de acesso.");
+      showToast("Confira as regras do Firestore e se o usuário está autorizado.");
     }
   );
 }
 
-elements.adminForm.addEventListener("submit", handleAdminLogin);
-elements.logoutAdmin.addEventListener("click", handleAdminLogout);
+elements.showLogin.addEventListener("click", () => setAuthMode("login"));
+elements.showRegister.addEventListener("click", () => setAuthMode("register"));
+elements.loginForm.addEventListener("submit", handleLogin);
+elements.registerForm.addEventListener("submit", handleRegister);
+elements.registerRole.addEventListener("change", updateRoleFields);
+elements.installApp.addEventListener("click", installApp);
+elements.dismissInstall.addEventListener("click", () => {
+  sessionStorage.setItem(INSTALL_DISMISSED_KEY, "true");
+  hideInstallBanner();
+});
+elements.logoutUser.addEventListener("click", handleLogout);
 elements.addFleet.addEventListener("click", () => openFleetDialog());
 elements.search.addEventListener("input", applyFilter);
 elements.form.addEventListener("submit", saveFleet);
@@ -422,5 +658,34 @@ elements.detailsDialog.addEventListener("click", (event) => {
   }
 });
 
-updateAdminView();
-subscribeToFleets();
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  window.setTimeout(showInstallBanner, 700);
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+  showToast("App instalado.");
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showLoginScreen();
+    return;
+  }
+
+  try {
+    const profile = await loadUserProfile(user);
+    showApp(profile);
+  } catch (error) {
+    console.error(error);
+    showAuthMessage("Não foi possível carregar o perfil do usuário.");
+    await signOut(auth);
+  }
+});
+
+updateRoleFields();
+showLoginScreen();
+registerServiceWorker();
