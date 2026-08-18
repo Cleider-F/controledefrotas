@@ -46,6 +46,8 @@
               <input id="login-password" type="password" autocomplete="current-password" required />
             </label>
 
+            <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
+
             <button class="primary-button" type="submit">
               <i data-lucide="log-in"></i>
               <span>Entrar</span>
@@ -250,6 +252,35 @@
 
         <div id="details-body" class="details-grid"></div>
       </div>
+    </dialog>
+
+    <dialog id="reset-dialog" class="fleet-dialog reset-dialog">
+      <form id="reset-form" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Recuperação de senha</p>
+            <h2>Redefinir acesso</h2>
+          </div>
+          <button id="close-reset" class="icon-button ghost" type="button" aria-label="Fechar recuperação">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <label class="single-field">
+          <span>E-mail cadastrado</span>
+          <input id="reset-email" type="email" autocomplete="email" required />
+        </label>
+
+        <p class="helper-text">Você receberá um link do Firebase para criar uma nova senha.</p>
+
+        <div class="dialog-actions">
+          <button id="cancel-reset" class="secondary-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="mail"></i>
+            <span>Enviar e-mail</span>
+          </button>
+        </div>
+      </form>
     </dialog>
 
     <section id="install-banner" class="install-banner hidden" aria-live="polite">

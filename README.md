@@ -41,6 +41,12 @@ O app tem cadastro e login por e-mail e senha. No cadastro, o usuário escolhe e
 - `Usuário comum`: apenas visualiza as composições.
 - `Admin`: visualiza, adiciona, edita e exclui composições.
 
+Na tela de login, o link `Esqueci minha senha` envia o e-mail de redefinição pelo Firebase Authentication. Você pode personalizar esse e-mail em:
+
+```text
+Authentication > Templates
+```
+
 O código inicial para cadastrar admin é:
 
 ```text

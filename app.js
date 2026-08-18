@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -46,6 +47,7 @@ const elements = {
   loginForm: document.querySelector("#login-form"),
   loginEmail: document.querySelector("#login-email"),
   loginPassword: document.querySelector("#login-password"),
+  forgotPassword: document.querySelector("#forgot-password"),
   registerForm: document.querySelector("#register-form"),
   registerName: document.querySelector("#register-name"),
   registerEmail: document.querySelector("#register-email"),
@@ -68,14 +70,19 @@ const elements = {
   empty: document.querySelector("#empty-state"),
   dialog: document.querySelector("#fleet-dialog"),
   detailsDialog: document.querySelector("#details-dialog"),
+  resetDialog: document.querySelector("#reset-dialog"),
   form: document.querySelector("#fleet-form"),
+  resetForm: document.querySelector("#reset-form"),
   dialogTitle: document.querySelector("#dialog-title"),
   detailsTitle: document.querySelector("#details-title"),
   detailsBody: document.querySelector("#details-body"),
   closeDialog: document.querySelector("#close-dialog"),
   closeDetails: document.querySelector("#close-details"),
+  closeReset: document.querySelector("#close-reset"),
   cancelForm: document.querySelector("#cancel-form"),
+  cancelReset: document.querySelector("#cancel-reset"),
   toast: document.querySelector("#toast"),
+  resetEmail: document.querySelector("#reset-email"),
   fleetId: document.querySelector("#fleet-id"),
   placa: document.querySelector("#placa"),
   tipoCavalo: document.querySelector("#tipo-cavalo"),
@@ -434,6 +441,38 @@ function closeDetailsDialog() {
   elements.detailsDialog.close();
 }
 
+function openResetDialog() {
+  elements.resetForm.reset();
+  elements.resetEmail.value = elements.loginEmail.value.trim();
+  elements.resetDialog.showModal();
+  elements.resetEmail.focus();
+}
+
+function closeResetDialog() {
+  elements.resetDialog.close();
+  elements.resetForm.reset();
+}
+
+async function handlePasswordReset(event) {
+  event.preventDefault();
+  const email = elements.resetEmail.value.trim();
+
+  if (!email) {
+    showToast("Informe o e-mail cadastrado.");
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    closeResetDialog();
+    showAuthMessage("Enviamos um e-mail para redefinir sua senha.");
+    showToast("E-mail de recuperação enviado.");
+  } catch (error) {
+    console.error(error);
+    showToast(translateAuthError(error));
+  }
+}
+
 async function saveFleet(event) {
   event.preventDefault();
 
@@ -628,6 +667,7 @@ function subscribeToFleets() {
 elements.showLogin.addEventListener("click", () => setAuthMode("login"));
 elements.showRegister.addEventListener("click", () => setAuthMode("register"));
 elements.loginForm.addEventListener("submit", handleLogin);
+elements.forgotPassword.addEventListener("click", openResetDialog);
 elements.registerForm.addEventListener("submit", handleRegister);
 elements.registerRole.addEventListener("change", updateRoleFields);
 elements.installApp.addEventListener("click", installApp);
@@ -639,9 +679,12 @@ elements.logoutUser.addEventListener("click", handleLogout);
 elements.addFleet.addEventListener("click", () => openFleetDialog());
 elements.search.addEventListener("input", applyFilter);
 elements.form.addEventListener("submit", saveFleet);
+elements.resetForm.addEventListener("submit", handlePasswordReset);
 elements.closeDialog.addEventListener("click", closeFleetDialog);
 elements.closeDetails.addEventListener("click", closeDetailsDialog);
+elements.closeReset.addEventListener("click", closeResetDialog);
 elements.cancelForm.addEventListener("click", closeFleetDialog);
+elements.cancelReset.addEventListener("click", closeResetDialog);
 elements.placa.addEventListener("input", () => {
   elements.placa.value = formatPlate(elements.placa.value);
 });
@@ -655,6 +698,12 @@ elements.dialog.addEventListener("click", (event) => {
 elements.detailsDialog.addEventListener("click", (event) => {
   if (event.target === elements.detailsDialog) {
     closeDetailsDialog();
+  }
+});
+
+elements.resetDialog.addEventListener("click", (event) => {
+  if (event.target === elements.resetDialog) {
+    closeResetDialog();
   }
 });
 
